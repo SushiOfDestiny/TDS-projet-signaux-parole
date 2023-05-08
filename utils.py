@@ -51,8 +51,7 @@ def plot_spectrum(xhat, fs):
     plt.plot(freq[:n//2], np.abs(xhat[:n//2]))
     plt.xlabel('f [kHz]')
     plt.show()
-    
-    
+
 def plot_cepstrum(cepstrum, fs):
 
     """
@@ -66,9 +65,10 @@ def plot_cepstrum(cepstrum, fs):
     fs: int
       sampling rate
     """
+    offset = 0. # correspond plutôt à un threshold qu'un offset
 
     n = cepstrum.size
-    t = np.arange(n)/fs
+    t = np.arange(n)/fs # quéfrences
     mask = (t[:n//2] >= offset)
     plt.plot(1e3*t[:n//2][mask], cepstrum[:n//2][mask])
     plt.xlabel('t [ms]')
