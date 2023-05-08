@@ -323,8 +323,13 @@ def cepstrum_pitch_detection(cepstrum, threshold, max_rate, sample_rate):
     init_time = 4e-3 # we skip the cepstrum content before this value (in ms)
     init_ind = int(init_time * fs)
     seg_ceps = cepstrum[init_ind:] # truncated cepstrum
-    val_max, ind_max = np.max(seg_ceps), np.argmax(seg_ceps)
-    if val_max / np.mean(seg_ceps) > seg_ceps:
+  
+    if  np.max(seg_ceps)  / np.mean(seg_ceps) > seg_ceps:
+        pitch_estim = np.argmax(seg_ceps)
+    else:
+        pitch_estim = 0.
+    
+    return pitch_estim
         
 
     
