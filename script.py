@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
 
     [sample_rate, speech] = wavfile.read('./audio/speech.wav')
-    speech = np.array(speech)
+    speech = np.array(speech)[:2000]
 
     # normalize the speech
     speech = 0.9*speech/max(abs(speech))
@@ -59,6 +59,7 @@ if __name__ == '__main__':
         
         # Pitch detection
         cepstrum = compute_cepstrum(block)
+        # plot_cepstrum(cepstrum, sample_rate)
         pitch = cepstrum_pitch_detection(cepstrum, threshold, max_rate, 
          sample_rate)
         
@@ -75,12 +76,18 @@ if __name__ == '__main__':
     blocks_decoded = []
     for coefs, pitch, g in zip(lpc_coefs, pitches, gain):
     
-        # Creates an excitation signal
+        # Creates an excitation signal for a non-voiced speech
         noise = g*np.random.randn(block_size)
+
         if(pitch != 0):
         
-            # TODO: create an excitation signal based upon a train of
-            # impulses
+            # create an excitation signal based upon a train of
+            # impulses of the same length as the current block
+
+            # nb_impulses = int( block_size / T )
+            # source = g * create_impulse_train(nb_impulses, T)
+            source = g * create_impulse_train(sample_rate, block_size, T)
+            
             
         else:
             source = noise

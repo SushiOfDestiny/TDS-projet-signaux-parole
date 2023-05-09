@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.io.wavfile as wavfile
 
+import scipy
 from scipy.signal import resample
 from scipy.signal.windows import hann 
 from scipy.linalg import solve_toeplitz, toeplitz
@@ -21,7 +22,7 @@ import utils
 
 fs = 8e3 # sampling frequency
 
-def make_window(T,dt):
+def make_window(L,fs):
     
     """
     Returns the Hamming window
@@ -29,8 +30,8 @@ def make_window(T,dt):
     Parameters
     ----------
     
-    T: window duration
-    dt: duration of a sample
+    L: window duration (s)
+    fs: sample rate
 
     Return
     ------
@@ -38,9 +39,9 @@ def make_window(T,dt):
 
     """
 
-    size = int(T/dt)
-    times = np.arange(size) * dt
-    window = 0.54 - 0.46 * np.cos( 2*np.pi/T * times)
+    size = int(L*fs)
+    times = np.arange(size) / fs
+    window = 0.54 - 0.46 * np.cos( 2*np.pi/L * times)
     return times, window
 
 # times,window=make_window(0.02,1/(8e3))
@@ -69,27 +70,41 @@ def blocks_decomposition(x, w, R = 0.5):
       block decomposition of the signal
     """
 
-    window = np.concatenate( ( w, np.zeros(x.size - w.size) ) )
-    blocks = np.zeros( shape=( int((2 * x.size) / w.size - 1) , x.size) )
+    # window = np.concatenate( ( w, np.zeros(x.size - w.size) ) )
+    # blocks = np.zeros( shape=( int((2 * x.size) / w.size - 1) , x.size) )
+
+    # for k in range(blocks.shape[0]):
+    #     blocks[k, :] = x * window
+    #     window = np.roll( window, int(w.size * R) )
+
+    win_extended = np.concatenate( ( w, np.zeros(x.size - w.size) ) ) # fenêtre allongée par des zéros pour faire mm taille que signal x
+    interval = int(w.size * R) # nombre d'instants séparant le début de 2 blocs consécutifs, correspondant à la moitié de la taille de la fenêtre si R=0.5
+    blocks = np.zeros( shape=( x.size // interval, w.size) )
+    
 
     for k in range(blocks.shape[0]):
-        blocks[k, :] = x * window
-        window = np.roll( window, int(w.size * R) )
+        big_block = x * win_extended
+        blocks[k, :] = big_block[ k *  interval : k * interval + w.size ]
+        win_extended = np.roll( win_extended, interval )
+
+
     
     return blocks
 
 # Exemple de fenêtrage de Hamming d'un signal audio constant
-T=1
-dt=1/fs
-size=int(T/dt)
-
-wintimes,win =make_window( 0.2, dt )
+L=1
+size=int(L * fs)
+win_dur = 0.2
+wintimes,win =make_window( win_dur, fs )
 # print(win.shape)
 
 f_init = np.ones( size ,dtype=float )
 # # utils.plot_signal(f_init,fs)
 
 blocks = blocks_decomposition( f_init, win)
+
+# for k in range(blocks[0].size):
+#     utils.plot_signal(blocks[k, :], fs)
     
     
     
@@ -118,19 +133,29 @@ def blocks_reconstruction(blocks, w, signal_size, R = 0.5):
       reconstructed signal
     """
 
-    window = np.concatenate( ( w, np.ones(signal_size - w.size) ) ) # fenêtre étendue par des uns pour pouvoir les signaux fenêtrés par ses valeurs
-    f = np.zeros(signal_size, dtype=float)
+    # window = np.concatenate( ( w, np.ones(signal_size - w.size) ) ) # fenêtre étendue par des uns pour pouvoir les signaux fenêtrés par ses valeurs
+    # f = np.zeros(signal_size, dtype=float)
 
-    for k in range(blocks.shape[0]-1):
-        portion = blocks[k, :] / window
-        # # utils.plot_signal(portion,fs)
-        ind_fin_portion = (k+1) * int(w.size * R)
-        f[:ind_fin_portion] = f[:ind_fin_portion] + portion[:ind_fin_portion]
-        window = np.roll(window, int(w.size * R))
+    # for k in range(blocks.shape[0]-1):
+    #     portion = blocks[k, :] / window
+    #     # # utils.plot_signal(portion,fs)
+    #     ind_fin_portion = (k+1) * int(w.size * R)
+    #     f[:ind_fin_portion] = f[:ind_fin_portion] + portion[:ind_fin_portion]
+    #     window = np.roll(window, int(w.size * R))
     
-    portion = blocks[-1, :] / window
-    f = f + portion
+    # portion = blocks[-1, :] / window
+    # f = f + portion
+
+    f_pad = np.zeros(signal_size + w.size, dtype=float) # étendu avec des 0 pour fenêtrer la fin du signal réel
+
+    for k in range(blocks.shape[0]):
+        portion = blocks[k, :] / w
+        interval = int(w.size * R)
+        f_pad[k*interval : (k+1)*interval] = f_ext[k*interval : (k+1)*interval] + portion
     
+    f = f_pad[:signal_size] # on enlève les 0 ajoutés au bord
+    f[interval : ] = f[interval : ] * 0.5 # on moyenne les intervalles d'instant où on a ajouté 2 portions
+
     return f
 
 #Exemple de reconstruction
@@ -160,9 +185,9 @@ def autocovariance(x, k):
       covariance index
     """
     x_acov = np.zeros(x.size - k, dtype=float)
-
+    x_mean = x.mean()
     for u in range(x_acov.size):
-        x_acov[u] = (x[u] - x.mean()) * (x[u + k] - x.mean())
+        x_acov[u] = (x[u] - x_mean) * (x[u + k] - x_mean)
     
     return x_acov.mean()
         
@@ -321,15 +346,40 @@ def cepstrum_pitch_detection(cepstrum, threshold, max_rate, sample_rate):
       estimated pitch. For an unvoiced segment, the pitch is set to zero
     """
     init_time = 4e-3 # we skip the cepstrum content before this value (in ms)
-    init_ind = int(init_time * fs)
+    init_ind = int(init_time * sample_rate)
     seg_ceps = cepstrum[init_ind:] # truncated cepstrum
   
-    if  np.max(seg_ceps)  / np.mean(seg_ceps) > seg_ceps:
+    if  np.max(seg_ceps)  / np.mean(seg_ceps) > threshold:
         pitch_estim = np.argmax(seg_ceps)
     else:
         pitch_estim = 0.
     
     return pitch_estim
+
+# def create_impulse_train(M: int, T: float) -> np.array:
+#     """
+#     create train of M impulsions with a pitch of T (s)"""
+#     size = int( M * T )
+#     e = np.zeros(size, dtype=float)
+#     for k in range(M):
+#         e = e + scipy.signal.unit_impulse(size, int( k * T ) )
+    
+#     return e
+
+def create_impulse_train(sample_rate, size: int, T: float) -> np.array:
+    """
+    create train of impulsions with a size pf size and a pitch of T (s)"""
+    M = int( size / sample_rate * T )
+    e = np.zeros(size, dtype=float)
+    for k in range(M):
+        e = e + scipy.signal.unit_impulse(size, int( k * T ) )
+    
+    return e
+
+# test
+# T=5.
+# e = create_impulse_train(10, T)
+# utils.plot_signal(e, fs)
         
 
     
