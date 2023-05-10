@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
 
     [sample_rate, speech] = wavfile.read('./audio/speech.wav')
-    speech = np.array(speech)[:2000]
+    speech = np.array(speech)
 
     # normalize the speech
     speech = 0.9*speech/max(abs(speech))
@@ -37,6 +37,8 @@ if __name__ == '__main__':
 
     #  window
     w = hann(floor(0.02*sample_rate), False)
+    # test OK
+    # utils.plot_signal(w, sample_rate)
     
     # Block decomposition
     blocks = blocks_decomposition(speech, w, R = 0.5)
@@ -86,18 +88,21 @@ if __name__ == '__main__':
 
             # nb_impulses = int( block_size / T )
             # source = g * create_impulse_train(nb_impulses, T)
-            source = g * create_impulse_train(sample_rate, block_size, T)
+            source = g * create_impulse_train(sample_rate, block_size / sample_rate, pitch)
+            # utils.plot_signal(source, sample_rate)
             
             
         else:
             source = noise
     
-        block_decoded = lpc_decode(coefs, w*source)
+            block_decoded = lpc_decode(coefs, w*source)
         blocks_decoded.append(block_decoded)
         
-    blocks_decoded = np.array(blocks_decoded)
+    blocks_decoded = np.array(blocks_decoded) # problème ici
     decoded_speech = blocks_reconstruction(blocks_decoded, w, speech.size, 
       R = 0.5)
+    
+    np.nan_to_num(decoded_speech, copy=False) # effacement des Nan
     
     wavfile.write("./results/decoded_speech.wav", sample_rate, decoded_speech)
 
