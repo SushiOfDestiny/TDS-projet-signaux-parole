@@ -41,11 +41,7 @@ def make_window(L, fs):
     times = np.linspace(0, L, size)
     window = 0.54 - 0.46 * np.cos(2*np.pi/L * times)
 
-    return times, window
-
-# test OK
-# times,window=make_window(0.02,fs)
-# utils.plot_signal(window,fs)
+    return window
 
 
 def blocks_decomposition(x, w, R=0.5):
@@ -70,13 +66,6 @@ def blocks_decomposition(x, w, R=0.5):
       block decomposition of the signal
     """
 
-    # window = np.concatenate( ( w, np.zeros(x.size - w.size) ) )
-    # blocks = np.zeros( shape=( int((2 * x.size) / w.size - 1) , x.size) )
-
-    # for k in range(blocks.shape[0]):
-    #     blocks[k, :] = x * window
-    #     window = np.roll( window, int(w.size * R) )
-
     # nombre d'instants séparant le début de 2 blocs consécutifs,
     interval = int(w.size * R)
     # correspondant à la moitié de la taille de la fenêtre si R=0.5
@@ -86,32 +75,11 @@ def blocks_decomposition(x, w, R=0.5):
 
     blocks = np.zeros(shape=(x.size // interval, w.size))
 
-    # win_extended = np.concatenate( ( w, np.zeros(x.size - w.size) ) ) # fenêtre allongée par des zéros pour faire mm taille que signal x
-    # for k in range(blocks.shape[0]):
-    #     big_block = x * win_extended
-    #     utils.plot_signal(big_block,fs)
-    #     blocks[k, :] = big_block[ k *  interval : k * interval + w.size ]
-    #     win_extended = np.roll( win_extended, interval )
-
     for k in range(blocks.shape[0]):
         blocks[k, :] = x_ext[k * interval: k * interval + w.size] * w
         # utils.plot_signal(blocks[k, :],fs)
 
     return blocks
-
-
-# # Exemple de fenêtrage de Hamming d'un signal audio constant OK
-# L = 1
-# size = int(L * fs)
-# win_dur = 0.2
-# wintimes, win = make_window(win_dur, fs)
-# # print(win.shape)
-
-# # f_init = np.ones( size ,dtype=float )
-# f_init = np.linspace(0, L, size, dtype=float)
-# utils.plot_signal(f_init, fs)
-
-# blocks = blocks_decomposition(f_init, win)
 
 
 def blocks_reconstruction(blocks, w, signal_size, R=0.5):
@@ -138,19 +106,6 @@ def blocks_reconstruction(blocks, w, signal_size, R=0.5):
       reconstructed signal
     """
 
-    # window = np.concatenate( ( w, np.ones(signal_size - w.size) ) ) # fenêtre étendue par des uns pour pouvoir les signaux fenêtrés par ses valeurs
-    # f = np.zeros(signal_size, dtype=float)
-
-    # for k in range(blocks.shape[0]-1):
-    #     portion = blocks[k, :] / window
-    #     # # utils.plot_signal(portion,fs)
-    #     ind_fin_portion = (k+1) * int(w.size * R)
-    #     f[:ind_fin_portion] = f[:ind_fin_portion] + portion[:ind_fin_portion]
-    #     window = np.roll(window, int(w.size * R))
-
-    # portion = blocks[-1, :] / window
-    # f = f + portion
-
     interval = int(w.size * R)
     # étendu avec des 0 pour fenêtrer la fin du signal réel
     f_ext = np.zeros(signal_size + w.size, dtype=float)
@@ -165,18 +120,6 @@ def blocks_reconstruction(blocks, w, signal_size, R=0.5):
     f[interval: blocks.shape[0] * interval] *= 0.5
 
     return f
-
-# Exemple de reconstruction
-# f_init_ext = np.pad(f_init, (f_init.size, f_init.size))
-# blocks = blocks_decomposition(f_init_ext, win)
-# # utils.plot_signal(f_init_ext,fs)
-# f_rec=blocks_reconstruction(blocks, win, f_init_ext.size)
-# # utils.plot_signal(f_rec,fs)
-
-
-# Exemple de reconstruction OK
-# f_rec = blocks_reconstruction(blocks, win, f_init.size)
-# utils.plot_signal(f_rec,fs)
 
 
 # -----------------------------------------------------------------------------
@@ -210,12 +153,7 @@ def convolve(a, b, n):
     b: numpy array
       assumed that b.size >= a.size
     """
-    # conv = np.zeros(b.size, dtype=float) # estimations du signal non fenêtré
-    # conv[0] = b[0]
-    # for n in range(1, b.size):
-    #     conv[n] = np.array([a[k] * b[n - 1 - k] for k in range(min(a.size, n))]).sum()
 
-    # return conv
     return np.array([a[k] * b[n - 1 - k] for k in range(min(a.size, n))]).sum()
 
 
@@ -249,18 +187,12 @@ def lpc_encode(x, p):
     alphas = solve_toeplitz(c_or_cr=v_acov(
         np.arange(p)), b=v_acov(np.arange(1, p+1)))
 
-    # x_estim=convolve(alphas, x) # estimations du signal fenêtré
-    # estimations du signal fenêtré
-    x_estim = np.zeros(x.size, dtype=float)
+    x_estim = np.zeros(x.size, dtype=float)  # estimations du signal fenêtré
     x_estim[0] = x[0]
     for n in range(1, x.size):
         x_estim[n] = convolve(alphas, x, n)
 
     return alphas, x_estim
-
-
-# # test
-# alphas, x_estim = lpc_encode(np.arange(500) * 1.0, 32)
 
 
 def lpc_decode(coefs, source):
@@ -288,10 +220,6 @@ def lpc_decode(coefs, source):
         s[n] = source[n] + convolve(coefs, s, n)
 
     return s
-
-
-# # test
-# lpc_decode(alphas, np.arange(500) * 1.0)
 
 
 # -----------------------------------------------------------------------------
@@ -324,14 +252,6 @@ def compute_cepstrum(x):
 
     return x_cepstrum
 
-# # test OK
-# times = np.linspace(0,1,8000)
-# x = np.cos( 2*np.pi*1e3 * times) + np.sin( 2*np.pi*3e3 * times)
-
-# utils.plot_signal(x,fs)
-# utils.plot_spectrum( np.fft.fft( x ), fs )
-# utils.plot_cepstrum( compute_cepstrum( x ), fs )
-
 
 def cepstrum_pitch_detection(cepstrum, threshold, max_rate, sample_rate):
     """
@@ -357,7 +277,7 @@ def cepstrum_pitch_detection(cepstrum, threshold, max_rate, sample_rate):
     """
     init_time = 4e-3  # we skip the cepstrum content before this value (in ms)
     init_ind = int(init_time * sample_rate)
-    seg_ceps = cepstrum[init_ind:]  # truncated cepstrum
+    seg_ceps = cepstrum[init_ind:]  # segmented cepstrum
 
     if np.max(seg_ceps) / np.mean(seg_ceps) > threshold:
         pitch_estim = np.argmax(seg_ceps) / sample_rate
@@ -366,29 +286,163 @@ def cepstrum_pitch_detection(cepstrum, threshold, max_rate, sample_rate):
 
     return pitch_estim
 
-# def create_impulse_train(M: int, T: float) -> np.array:
-#     """
-#     create train of M impulsions with a pitch of T (s)"""
-#     size = int( M * T )
-#     e = np.zeros(size, dtype=float)
-#     for k in range(M):
-#         e = e + scipy.signal.unit_impulse(size, int( k * T ) )
 
-#     return e
-
+def approx_dirac(dir_size:int):
+    times = np.linspace(-np.pi, np.pi, dir_size)
+    return np.sinc(times)
 
 def create_impulse_train(sample_rate, L: float, T: float) -> np.array:
     """
-    create train of M impulsions of duration L sampled at the frequency sample_rate and with a pitch of T (s)"""
-    size = int(L * sample_rate) # nb of elts in array
-    M = int( L / T )
-    ind_bet_pitches = int(T * fs) # nb indices entre 2 émissions de pitch
+    create train of M dirac impulsions of duration L sampled at the frequency sample_rate and with a pitch of T (s)
+    """
+    size = int(L * sample_rate)  # nb of elts in array
+    M = int(L / T)
+    ind_bet_pitches = int(T * fs)  # nb indices entre 2 émissions de pitch
     e = np.zeros(size, dtype=float)
     for k in range(M):
-        e = e + scipy.signal.unit_impulse(size, k * ind_bet_pitches)
+        e[k * ind_bet_pitches] = 1.
 
     return e
 
-# # test OK
+def create_impulse_train_approx(sample_rate, L: float, T: float, dir_size:int) -> np.array:
+    """
+    create train of M sinc impulsions of duration L sampled at the frequency sample_rate and with a pitch of T (s)
+    - dir_size is the dirac's 'width' in terms of number of array elements
+    """
+    size = int(L * sample_rate)  # nb of elts in array
+    M = int(L / T)
+    ind_bet_pitches = int(T * fs)  # nb indices entre 2 émissions de pitch
+    e = np.zeros(size, dtype=float)
+    for k in range(M):
+        start_index = k * ind_bet_pitches # index of beginning of the dirac
+        ind_left = size - start_index # nb of elements left
+        dir_size_modif = min(ind_left, dir_size) # modified dirac size so it fits in the remaining elements 
+        e[ start_index : start_index + dir_size_modif] = approx_dirac(dir_size)[: dir_size_modif]
+
+    return e
+
+def compute_cepstrum_dirac_impulse_train_theoric(fs, duration:float, T:float):
+    """
+    compute theorical cepstrum of impulse train of pitch T
+    """ 
+    size = int( duration * fs )
+    M = int(duration / T)
+    ind_bet_pitches = int(T * fs)  # nb indices entre 2 émissions de pitch
+    e_cepst = np.zeros(size, dtype=float)
+    for k in range(M):
+        e_cepst[k * ind_bet_pitches] = 1 / ( k + 1 )
+
+    return e_cepst
+
+
+################################
+# TESTS
+################################
+
+# test make_window OK
+# window=make_window(0.02,fs)
+# utils.plot_signal(window,fs)
+
+# test block_decomposition OK
+# Exemple de fenêtrage de Hamming d'un signal audio constant
+# L = 1
+# size = int(L * fs)
+# win_dur = 0.2
+# wintimes, win = make_window(win_dur, fs)
+# # print(win.shape)
+# # f_init = np.ones( size ,dtype=float )
+# f_init = np.linspace(0, L, size, dtype=float)
+# utils.plot_signal(f_init, fs)
+# blocks = blocks_decomposition(f_init, win)
+
+# test block_reconstruction OK
+# f_rec = blocks_reconstruction(blocks, win, f_init.size)
+# utils.plot_signal(f_rec,fs)
+
+# test lpc_encode avec sinusoïde OK
+# times = np.linspace(0,1,8000)
+# x = np.cos(2*np.pi * 10 * times)
+# utils.plot_signal(x, fs)
+# alphas, x_estim = lpc_encode(x, 32)
+# utils.plot_signal(x_estim, fs)
+
+# test compute_cepstrum avec sinusoides OK
+# times = np.linspace(0,1,8000)
+# x = np.cos( 2*np.pi*1e3 * times) + np.sin( 2*np.pi*3e3 * times)
+# utils.plot_signal(x,fs)
+# utils.plot_spectrum( np.fft.fft( x ), fs )
+# utils.plot_cepstrum( compute_cepstrum( x ), fs )
+
+# test create_impulse_train OK
+# e = create_impulse_train(fs, 10., 0.2)
+# utils.plot_signal(e, fs)
+
+# test lpc_encode avec train impulsions NOT OK
+# e = create_impulse_train(fs, 10., 0.2)
+# utils.plot_signal(e, fs)
+# alphas, e_estim = lpc_encode(e, 320)
+# utils.plot_signal(e_estim, fs)
+
+# test lpc_encode avec train impulsions * hamming NOT OK
+# w = make_window(1.,fs)
+# utils.plot_signal(w,fs)
 # e = create_impulse_train(fs, 1., 0.2)
 # utils.plot_signal(e, fs)
+# utils.plot_signal(w * e, fs)
+# alphas, we_estim = lpc_encode(w * e, 32)
+# utils.plot_signal(we_estim, fs)
+
+# test lpc_encode avec sinc NOT BAD COULD BE BETTER
+# fs2 = 160.  # si fs2 < p=32 => erreur 'negative dimension not allowed'
+# inst = 16 # nb instants du sinc
+# times = np.linspace(-np.pi, np.pi, inst)
+# # x = np.pad(np.sinc(times), (0,int(fs2) - inst))
+# x = np.pad(approx_dirac(inst), (0,int(fs2) - inst))
+# utils.plot_signal(x, fs2)
+# alphas, x_estim = lpc_encode(x, 32) # augmenter le nombre de coefficients diminue la qualité de la prédiction
+# utils.plot_signal(x_estim, fs2)
+
+# test lpc_encode avec modified dirac OK
+# train_length = 160
+# T = 0.015875
+# d = create_impulse_train_approx(fs, train_length / fs, 20 / fs, 16)
+# utils.plot_signal(d, fs)
+# alphas, x_estim = lpc_encode(d, 32) 
+# utils.plot_signal(x_estim, fs)
+
+# test cepstrum avec exemple internet OK
+# lien: https://support.ptc.com/help/mathcad/r9.0/fr/index.html#page/PTC_Mathcad_Help/example_cepstrum_and_complex_cepstrum.html
+# times = np.linspace(0,1,fs)
+# indexes = np.arange(500)
+# fun = np.vectorize( lambda i: 100 / ( i + 100 ) * np.sin( i / 5 ) )
+# x = fun(indexes)
+# utils.plot_signal(x, fs)
+# cepstr = compute_cepstrum(x)
+# utils.plot_cepstrum(cepstr, fs)
+
+# test compute_cepstrum_dirac_impulse_train_theoric OK
+# e = create_impulse_train(fs, 1., 0.2)
+# e_cepst = compute_cepstrum_dirac_impulse_train_theoric(fs, 1. , 0.2)
+# utils.plot_signal(e_cepst, fs)
+# utils.plot_cepstrum(e_cepst, fs)
+
+# test compute_cepstrum_dirac_impulse_train_theoric de taille d'1 fenêtre OK
+# T= 0.015875
+# e_cepst = compute_cepstrum_dirac_impulse_train_theoric(fs, 160 / fs, T)
+# utils.plot_signal(e_cepst, fs)
+# utils.plot_cepstrum(e_cepst, fs)
+
+# test cepstrum avec modified impulse train et valeur expérimentale du pitch
+# train_length = 160
+# dir_size = 16
+# # T = 50 / fs # marche pas avec 20 ni 18
+# T= 0.015875 # marche avec vraie valeur du pitch
+# d = create_impulse_train_approx(fs, train_length / fs, T , dir_size)
+# utils.plot_signal(d, fs)
+# utils.plot_spectrum(np.fft.fft(d),fs)
+# d_cepstr = compute_cepstrum(d)
+# utils.plot_cepstrum(d_cepstr, fs)
+# pitch_estim = cepstrum_pitch_detection(e_cepstr, 0.8, 100, fs)
+
+# test cepstrum detection avec cepstre théorique d'un train d'impulsions
+e_cepst = compute_cepstrum_dirac_impulse_train_theoric(fs, 1. , 0.2)

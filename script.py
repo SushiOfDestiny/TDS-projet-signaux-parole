@@ -21,10 +21,15 @@ if __name__ == '__main__':
 
 
     [sample_rate, speech] = wavfile.read('./audio/speech.wav')
-    speech = np.array(speech)
+    # speech = np.array(speech)
+
+    # tests sur un segment seulement
+    speech = np.array(speech)[200*160: 300*160]
 
     # normalize the speech
     speech = 0.9*speech/max(abs(speech))
+
+    utils.plot_signal(speech, fs)
 
     # resampling to 8kHz
     target_sample_rate = 8000
@@ -37,6 +42,7 @@ if __name__ == '__main__':
 
     #  window
     w = hann(floor(0.02*sample_rate), False)
+
     # test OK
     # utils.plot_signal(w, sample_rate)
     
@@ -57,11 +63,21 @@ if __name__ == '__main__':
 
         # Linear predictive coding
         coefs, prediction = lpc_encode(block, p)
+        
+        # test précision prédiction OK
+        # plt.title('block + prediction')
+        # utils.plot_signal(block, sample_rate)
+        # utils.plot_signal(prediction, sample_rate)
+
         error = block - prediction
         
         # Pitch detection
         cepstrum = compute_cepstrum(block)
+
+        # test cepstres OK
+        # plt.title("cepstres")
         # plot_cepstrum(cepstrum, sample_rate)
+
         pitch = cepstrum_pitch_detection(cepstrum, threshold, max_rate, 
          sample_rate)
         
@@ -76,33 +92,45 @@ if __name__ == '__main__':
     # --------------------
     
     blocks_decoded = []
-    for coefs, pitch, g in zip(lpc_coefs, pitches, gain):
+    for coefs, pitch, g , block in zip(lpc_coefs, pitches, gain, blocks):
     
         # Creates an excitation signal for a non-voiced speech
         noise = g*np.random.randn(block_size)
 
-        if(pitch != 0):
+        if(pitch != 0.):
         
             # create an excitation signal based upon a train of
             # impulses of the same length as the current block
+            # source = g * create_impulse_train(sample_rate, block_size / sample_rate, pitch)
 
-            # nb_impulses = int( block_size / T )
-            # source = g * create_impulse_train(nb_impulses, T)
-            source = g * create_impulse_train(sample_rate, block_size / sample_rate, pitch)
+            # test source NOT OK seulement 1 pic au début de chaque source
+            # plt.title('source')
             # utils.plot_signal(source, sample_rate)
+
+            # version modifiée dirac approximé
+            source = g * create_impulse_train_approx(sample_rate, block_size / sample_rate, pitch, 50)
             
             
         else:
             source = noise
     
-            block_decoded = lpc_decode(coefs, w*source)
-        blocks_decoded.append(block_decoded)
+        block_decoded = lpc_decode(coefs, w*source)
+
+        # test décodage NOT OK AT ALL
+        plt.figure()
+        plt.title('block')
+        utils.plot_signal(block, sample_rate)
+        plt.title('decoded_block')
+        utils.plot_signal(block_decoded, sample_rate)
+
+        blocks_decoded.append(block_decoded) # problème ici
         
-    blocks_decoded = np.array(blocks_decoded) # problème ici
+    blocks_decoded = np.array(blocks_decoded) 
     decoded_speech = blocks_reconstruction(blocks_decoded, w, speech.size, 
       R = 0.5)
+    # utils.plot_signal(decoded_speech, sample_rate)
     
-    np.nan_to_num(decoded_speech, copy=False) # effacement des Nan
+    np.nan_to_num(decoded_speech, copy=False, posinf=0., neginf=0.) # effacement des Nan
     
     wavfile.write("./results/decoded_speech.wav", sample_rate, decoded_speech)
 
