@@ -226,9 +226,6 @@ def lpc_decode(coefs, source):
 # Pitch detection
 # -----------------------------------------------------------------------------
 
-# give array of norms from a array of complex
-v_norm = np.vectorize(lambda z: np.linalg.norm(z))
-
 
 def compute_cepstrum(x):
     """
@@ -247,7 +244,8 @@ def compute_cepstrum(x):
       signal cepstrum
     """
 
-    log_norm_dft_s = np.log(v_norm(np.fft.fft(x)))
+    # abs est vectorisée
+    log_norm_dft_s = np.log(abs(np.fft.fft(x)))
     x_cepstrum = np.fft.ifft(log_norm_dft_s)
 
     return x_cepstrum
@@ -410,15 +408,27 @@ def compute_cepstrum_dirac_impulse_train_theoric(fs, duration:float, T:float):
 # alphas, x_estim = lpc_encode(d, 32) 
 # utils.plot_signal(x_estim, fs)
 
-# test compute_cepstrum avec exemple internet OK
+# test compute_cepstrum avec exemple internet 1 OK
 # lien: https://support.ptc.com/help/mathcad/r9.0/fr/index.html#page/PTC_Mathcad_Help/example_cepstrum_and_complex_cepstrum.html
-# times = np.linspace(0,1,fs)
+# times = np.linspace(0.,1.,int(fs))
 # indexes = np.arange(500)
 # fun = np.vectorize( lambda i: 100 / ( i + 100 ) * np.sin( i / 5 ) )
 # x = fun(indexes)
 # utils.plot_signal(x, fs)
 # cepstr = compute_cepstrum(x)
 # utils.plot_cepstrum(cepstr, fs)
+
+# test compute_cepstrum avec exemple internet 2 OK
+# lien: https://www.mathworks.com/help/signal/ug/cepstrum-analysis.html
+# times = np.linspace(0.,0.1,int(fs))
+# x = np.sin(2*np.pi*45.*times)
+# utils.plot_signal(x,fs)
+# y = x
+# y[int(fs) // 2:] += x[int(fs) // 2:]
+# utils.plot_signal(y,fs)
+# cepstr = compute_cepstrum(y)
+# utils.plot_cepstrum(cepstr, fs)
+
 
 # test compute_cepstrum_dirac_impulse_train_theoric OK
 # L=1.
@@ -457,20 +467,32 @@ def compute_cepstrum_dirac_impulse_train_theoric(fs, duration:float, T:float):
 # utils.plot_cepstrum(d_cepstr_th, fs)
 
 # test pitch detection avec cepstre théorique d'un train d'impulsions OK
-L=1.
-T=0.2
-e = create_impulse_train(fs, L, T)
-utils.plot_signal(e,fs)
-e_cepst_th = compute_cepstrum_dirac_impulse_train_theoric(fs, L , T)
-T_found = cepstrum_pitch_detection(e_cepst_th, 0.8, 1000, fs)
-print(T, T_found)
+# L=10.
+# T=0.3
+# e = create_impulse_train(fs, L, T)
+# utils.plot_signal(e,fs)
+# e_cepst_th = compute_cepstrum_dirac_impulse_train_theoric(fs, L , T)
+# T_found = cepstrum_pitch_detection(e_cepst_th, 0.8, 1000, fs)
+# print(T, T_found)
 
-# test pitch detection avec cepstre théorique d'un train d'impulsions et taille fenêtre et valeur exp du pitch NOT OK peu importe le seuil
-size=160
-L= size / fs
-T=0.015875
-e = create_impulse_train(fs, L, T)
-utils.plot_signal(e,fs)
-e_cepst_th = compute_cepstrum_dirac_impulse_train_theoric(fs, L , T)
-T_found = cepstrum_pitch_detection(e_cepst_th, 0.0, 1000, fs)
-print(T, T_found)
+# test pitch detection avec cepstre théorique d'un train d'impulsions et taille fenêtre et valeur exp du pitch NOT OK
+# size=160
+# L= size / fs
+# T=0.015875
+# # T= 0.01
+# e = create_impulse_train(fs, L, T)
+# utils.plot_signal(e,fs)
+# e_cepst_th = compute_cepstrum_dirac_impulse_train_theoric(fs, L , T)
+# T_found = cepstrum_pitch_detection(e_cepst_th, 0.0, 1000, fs)
+# print(T, T_found)
+
+# test pitch detection avec cepstre théorique d'un train d'impulsions et plus grande taille fenêtre et valeur exp du pitch OK
+# size=200
+# L= size / fs
+# T=0.1
+# # T= 0.01
+# e = create_impulse_train(fs, L, T)
+# utils.plot_signal(e,fs)
+# e_cepst_th = compute_cepstrum_dirac_impulse_train_theoric(fs, L , T)
+# T_found = cepstrum_pitch_detection(e_cepst_th, 0.0, 1000, fs)
+# print(T, T_found)

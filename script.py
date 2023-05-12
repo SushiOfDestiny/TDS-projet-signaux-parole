@@ -92,7 +92,7 @@ if __name__ == '__main__':
     # --------------------
     
     blocks_decoded = []
-    for coefs, pitch, g , block in zip(lpc_coefs, pitches, gain, blocks):
+    for coefs, pitch, g in zip(lpc_coefs, pitches, gain):
     
         # Creates an excitation signal for a non-voiced speech
         noise = g*np.random.randn(block_size)
@@ -109,6 +109,10 @@ if __name__ == '__main__':
 
             # version modifiée dirac approximé
             source = g * create_impulse_train_approx(sample_rate, block_size / sample_rate, pitch, 50)
+
+            # test source dirac
+            # plt.title('source modifiée')
+            # utils.plot_signal(source, sample_rate)
             
             
         else:
@@ -117,11 +121,10 @@ if __name__ == '__main__':
         block_decoded = lpc_decode(coefs, w*source)
 
         # test décodage NOT OK AT ALL
-        plt.figure()
-        plt.title('block')
-        utils.plot_signal(block, sample_rate)
-        plt.title('decoded_block')
-        utils.plot_signal(block_decoded, sample_rate)
+        # plt.title('block')
+        # utils.plot_signal(block, sample_rate)
+        # plt.title('decoded_block')
+        # utils.plot_signal(block_decoded, sample_rate)
 
         blocks_decoded.append(block_decoded) # problème ici
         
