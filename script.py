@@ -29,7 +29,7 @@ if __name__ == '__main__':
     # normalize the speech
     speech = 0.9*speech/max(abs(speech))
 
-    utils.plot_signal(speech, fs)
+    # utils.plot_signal(speech, fs)
 
     # resampling to 8kHz
     target_sample_rate = 8000
@@ -41,10 +41,10 @@ if __name__ == '__main__':
     wavfile.write("./results/speech_resampled.wav", sample_rate, speech)
 
     #  window
-    w = hann(floor(0.02*sample_rate), False)
+    w = hann(floor(0.02*sample_rate), False) + 0.01
 
     # test OK
-    # utils.plot_signal(w, sample_rate)
+    utils.plot_signal(w, sample_rate)
     
     # Block decomposition
     blocks = blocks_decomposition(speech, w, R = 0.5)
@@ -95,6 +95,7 @@ if __name__ == '__main__':
     for coefs, pitch, g in zip(lpc_coefs, pitches, gain):
     
         # Creates an excitation signal for a non-voiced speech
+        # g est le gain de la voix, valant à peu près l'écart type du résidu
         noise = g*np.random.randn(block_size)
 
         if(pitch != 0.):
@@ -131,7 +132,7 @@ if __name__ == '__main__':
     blocks_decoded = np.array(blocks_decoded) 
     decoded_speech = blocks_reconstruction(blocks_decoded, w, speech.size, 
       R = 0.5)
-    # utils.plot_signal(decoded_speech, sample_rate)
+    utils.plot_signal(decoded_speech, sample_rate)
     
     np.nan_to_num(decoded_speech, copy=False, posinf=0., neginf=0.) # effacement des Nan
     

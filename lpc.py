@@ -346,12 +346,17 @@ def compute_cepstrum_dirac_impulse_train_theoric(fs, duration:float, T:float):
 # L = 1
 # size = int(L * fs)
 # win_dur = 0.2
-# wintimes, win = make_window(win_dur, fs)
+# win = make_window(win_dur, fs)
+# utils.plot_signal(win, fs)
 # # print(win.shape)
 # # f_init = np.ones( size ,dtype=float )
 # f_init = np.linspace(0, L, size, dtype=float)
+# plt.figure()
 # utils.plot_signal(f_init, fs)
 # blocks = blocks_decomposition(f_init, win)
+# for i in range(10):
+#     utils.plot_signal(blocks[i], fs)
+# plt.show()
 
 # test block_reconstruction OK
 # f_rec = blocks_reconstruction(blocks, win, f_init.size)
@@ -429,7 +434,6 @@ def compute_cepstrum_dirac_impulse_train_theoric(fs, duration:float, T:float):
 # cepstr = compute_cepstrum(y)
 # utils.plot_cepstrum(cepstr, fs)
 
-
 # test compute_cepstrum_dirac_impulse_train_theoric OK
 # L=1.
 # T=0.2
@@ -475,6 +479,17 @@ def compute_cepstrum_dirac_impulse_train_theoric(fs, duration:float, T:float):
 # T_found = cepstrum_pitch_detection(e_cepst_th, 0.8, 1000, fs)
 # print(T, T_found)
 
+# test pitch detection avec cepstre d'une sinusoide
+# L=10.
+# T=0.3
+# size=int(L*fs)
+# times = np.linspace(0,L,size)
+# s = np.sin(2*np.pi / T * times)
+# utils.plot_signal(s,fs)
+# s_cepstr = compute_cepstrum(s)
+# T_found = cepstrum_pitch_detection(s_cepstr, 0.8, 10000, fs)
+# print(T, T_found)
+
 # test pitch detection avec cepstre théorique d'un train d'impulsions et taille fenêtre et valeur exp du pitch NOT OK
 # size=160
 # L= size / fs
@@ -489,10 +504,9 @@ def compute_cepstrum_dirac_impulse_train_theoric(fs, duration:float, T:float):
 # test pitch detection avec cepstre théorique d'un train d'impulsions et plus grande taille fenêtre et valeur exp du pitch OK
 # size=200
 # L= size / fs
-# T=0.1
-# # T= 0.01
+# T= 0.001
 # e = create_impulse_train(fs, L, T)
 # utils.plot_signal(e,fs)
 # e_cepst_th = compute_cepstrum_dirac_impulse_train_theoric(fs, L , T)
-# T_found = cepstrum_pitch_detection(e_cepst_th, 0.0, 1000, fs)
+# T_found = cepstrum_pitch_detection(e_cepst_th, 0.8, 1000, fs)
 # print(T, T_found)
