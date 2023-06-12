@@ -23,25 +23,25 @@ import utils
 fs = 8e3  # sampling frequency
 
 
-def make_window(L, fs):
-    """
-    Returns the Hamming window
+# def make_window(L, fs):
+#     """
+#     Returns the Hamming window
 
-    Parameters
-    ----------
+#     Parameters
+#     ----------
 
-    L: window duration (s)
-    fs: sample rate
+#     L: window duration (s)
+#     fs: sample rate
 
-    Return
-    ------
-    """
+#     Return
+#     ------
+#     """
 
-    size = int(L*fs)  # number of elements of the window
-    times = np.linspace(0, L, size)
-    window = 0.54 - 0.46 * np.cos(2*np.pi/L * times)
+#     size = int(L*fs)  # number of elements of the window
+#     times = np.linspace(0, L, size)
+#     window = 0.54 - 0.46 * np.cos(2*np.pi/L * times)
 
-    return window
+#     return window
 
 
 def blocks_decomposition(x, w, R=0.5):
@@ -106,20 +106,93 @@ def blocks_reconstruction(blocks, w, signal_size, R=0.5):
       reconstructed signal
     """
 
-    interval = int(w.size * R)
+    w[0] = 1e-10
+    
+    interval = int(w.size * (1-R))
     # étendu avec des 0 pour fenêtrer la fin du signal réel
     f_ext = np.zeros(signal_size + w.size, dtype=float)
 
     for k in range(blocks.shape[0]):
-        decoded_block = blocks[k, :] / w
+        decoded_block = blocks[k] / w
         f_ext[k*interval: k*interval + w.size] += decoded_block
         # utils.plot_signal(f_ext,fs)
 
     f = f_ext[:signal_size]  # on enlève les 0 ajoutés au bord
     # on moyenne les intervalles d'instants où il y a overlap
-    f[interval: blocks.shape[0] * interval] *= 0.5
+    f[interval: blocks.shape[0] * interval] *= R
 
     return f
+
+# version matéo
+# def blocks_decomposition(x, w, R=0.5):
+
+#     """
+#     Performs the windowing of the signal
+
+#     Parameters
+#     ----------
+
+#     x: numpy array
+#       single channel signal
+#     w: numpy array
+#       window
+#     R: float (default: 0.5)
+#       overlapping between subsequent windows
+
+#     Return
+#     ------
+
+#     out: numpy array
+#       block decomposition of the signal
+#     """
+#     T = len(w)
+#     S = 1 - R
+#     nb_blocks = int(np.ceil(len(x) / (T * S))) - 1
+#     blocks = np.zeros((nb_blocks, T))
+#     x_completed = np.concatenate((x, np.zeros(T - len(x) % T)))
+#     for i in range(nb_blocks):
+#         blocks[i] = x_completed[int(i * T * S) : int(i * T * S + T)] * w
+#         # print(blocks[i])
+#     return blocks
+
+
+# def blocks_reconstruction(blocks, w, signal_size, R=0.5):
+
+#     """
+#     Reconstruct a signal from overlapping blocks
+
+#     Parameters
+#     ----------
+
+#     blocks: numpy array
+#       signal segments. blocks[i,:] contains the i-th windowed
+#       segment of the speech signal
+#     w: numpy array
+#       window
+#     signal_size: int
+#       size of the original signal
+#     R: float (default: 0.5)
+#       overlapping between subsequent windows
+
+#     Return
+#     ------
+
+#     out: numpy array
+#       reconstructed signal
+#     """
+#     w[0] = 1e-10
+#     T = len(w)
+#     S = 1 - R
+#     nb_blocks = blocks.shape[0]
+#     signal = np.zeros(int(nb_blocks * T * S + T))
+#     passages = np.zeros(int(nb_blocks * T * S + T))
+#     for i in range(nb_blocks):
+#         signal[int(i * T * S) : int(i * T * S + T)] += blocks[i] * 1 / w
+#         passages[int(i * T * S) : int(i * T * S + T)] += 1
+#     signal = signal[:signal_size]
+#     passages = passages[:signal_size]
+#     signal = signal / passages
+#     return signal
 
 
 # -----------------------------------------------------------------------------
@@ -221,7 +294,6 @@ def lpc_decode(coefs, source):
 
     return s
 
-
 # -----------------------------------------------------------------------------
 # Pitch detection
 # -----------------------------------------------------------------------------
@@ -248,10 +320,10 @@ def compute_cepstrum(x):
     log_norm_dft_s = np.log(abs(np.fft.fft(x)))
     x_cepstrum = np.fft.ifft(log_norm_dft_s)
 
-    return x_cepstrum
+    return abs(x_cepstrum[:int(len(x_cepstrum) / 2)])
 
 
-def cepstrum_pitch_detection(cepstrum, threshold, max_rate, sample_rate):
+def cepstrum_pitch_detection(cepstrum, threshold, min_rate, max_rate, sample_rate):
     """
     Cepstrum based pitch detection
 
@@ -273,12 +345,15 @@ def cepstrum_pitch_detection(cepstrum, threshold, max_rate, sample_rate):
     out: int
       estimated pitch. For an unvoiced segment, the pitch is set to zero
     """
-    init_time = 4e-3  # we skip the cepstrum content before this value (in ms)
-    init_ind = int(init_time * sample_rate)
-    seg_ceps = cepstrum[init_ind:]  # segmented cepstrum
+       
+    init_ind = int(sample_rate / max_rate) # we skip the cepstrum content before this value (in ms)
+    # end_ind = int(sample_rate / min_rate)
+    seg_ceps = cepstrum[init_ind]  # segmented cepstrum
 
-    if np.max(seg_ceps) / np.mean(seg_ceps) > threshold:
+    if np.max(seg_ceps) / np.mean(seg_ceps) > 1 / threshold:
         pitch_estim = np.argmax(seg_ceps) / sample_rate
+        # if 1 / pitch_estim < 50 or 1 / pitch_estim > 250:
+        #     pitch_estim = 0.
     else:
         pitch_estim = 0.
 
@@ -343,24 +418,67 @@ def compute_cepstrum_dirac_impulse_train_theoric(fs, duration:float, T:float):
 
 # test block_decomposition OK
 # Exemple de fenêtrage de Hamming d'un signal audio constant
-# L = 1
-# size = int(L * fs)
-# win_dur = 0.2
+fs=8e3
+L = 1
+size = int(L * fs)
+win_dur = 0.2
 # win = make_window(win_dur, fs)
+w = hann(floor(win_dur*fs), False)
 # utils.plot_signal(win, fs)
-# # print(win.shape)
-# # f_init = np.ones( size ,dtype=float )
-# f_init = np.linspace(0, L, size, dtype=float)
-# plt.figure()
-# utils.plot_signal(f_init, fs)
-# blocks = blocks_decomposition(f_init, win)
+# print(win.shape)
+# f_init = np.ones( size ,dtype=float )
+times = np.linspace(0, L, size, dtype=float)
+f_init = np.sin(2*np.pi * 20 * times)
+# f_init = times
+
+plt.figure()
+plt.title('signal entrée')
+utils.plot_signal(f_init, fs)
+blocks = blocks_decomposition(f_init, w,R=0.5)
 # for i in range(10):
-#     utils.plot_signal(blocks[i], fs)
+    # utils.plot_signal(blocks[i], fs)
 # plt.show()
 
 # test block_reconstruction OK
-# f_rec = blocks_reconstruction(blocks, win, f_init.size)
-# utils.plot_signal(f_rec,fs)
+f_rec = blocks_reconstruction(blocks, w, f_init.size,R=0.5)
+plt.title('signal sortie')
+utils.plot_signal(f_rec,fs)
+
+plt.figure()
+plt.title('signal entrée')
+utils.plot_signal(f_init, fs)
+blocks = blocks_decomposition(f_init, w,R=0.5)
+# for i in range(10):
+    # utils.plot_signal(blocks[i], fs)
+# plt.show()
+
+# test block_decomposition OK
+# Exemple de fenêtrage de Hamming d'un signal audio constant
+fs=8e3
+L = 1
+size = int(L * fs)
+win_dur = 0.2
+# win = make_window(win_dur, fs)
+w = hann(floor(win_dur*fs), False)
+# utils.plot_signal(win, fs)
+# print(win.shape)
+# f_init = np.ones( size ,dtype=float )
+times = np.linspace(0, L, size, dtype=float)
+f_init = np.sin(2*np.pi * 2e3 * times)
+# f_init = times
+
+plt.figure()
+plt.title('signal entrée')
+utils.plot_signal(f_init, fs)
+blocks = blocks_decomposition(f_init, w,R=0.5)
+# for i in range(10):
+    # utils.plot_signal(blocks[i], fs)
+# plt.show()
+
+# test block_reconstruction OK
+f_rec = blocks_reconstruction(blocks, w, f_init.size,R=0.5)
+plt.title('signal sortie')
+utils.plot_signal(f_rec,fs)
 
 # test lpc_encode avec sinusoïde OK
 # times = np.linspace(0,1,8000)
@@ -377,7 +495,7 @@ def compute_cepstrum_dirac_impulse_train_theoric(fs, duration:float, T:float):
 # utils.plot_cepstrum( compute_cepstrum( x ), fs )
 
 # test create_impulse_train OK
-# e = create_impulse_train(fs, 10., 0.2)
+# e = create_impulse_train(fs, 1., 0.2)
 # utils.plot_signal(e, fs)
 
 # test lpc_encode avec train impulsions NOT OK

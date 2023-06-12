@@ -24,12 +24,12 @@ if __name__ == '__main__':
     # speech = np.array(speech)
 
     # tests sur un segment seulement
-    speech = np.array(speech)[200*160: 300*160]
+    speech = np.array(speech)
 
     # normalize the speech
     speech = 0.9*speech/max(abs(speech))
 
-    # utils.plot_signal(speech, fs)
+    utils.plot_signal(speech, fs)
 
     # resampling to 8kHz
     target_sample_rate = 8000
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     w = hann(floor(0.02*sample_rate), False) + 0.01
 
     # test OK
-    utils.plot_signal(w, sample_rate)
+    # utils.plot_signal(w, sample_rate)
     
     # Block decomposition
     blocks = blocks_decomposition(speech, w, R = 0.5)
@@ -57,6 +57,7 @@ if __name__ == '__main__':
     p = 32 # LPC filter: number of coefficients
     threshold = 0.8 # Parameters for pitch detection
     max_rate = 200 # Maximal pitch frequency [Hz]
+    min_rate = 50
         
     lpc_coefs, pitches, gain, errors = [], [], [], []
     for block in blocks:
@@ -78,7 +79,7 @@ if __name__ == '__main__':
         # plt.title("cepstres")
         # plot_cepstrum(cepstrum, sample_rate)
 
-        pitch = cepstrum_pitch_detection(cepstrum, threshold, max_rate, 
+        pitch = cepstrum_pitch_detection(cepstrum, threshold, min_rate, max_rate, 
          sample_rate)
         
         # Update
@@ -102,14 +103,14 @@ if __name__ == '__main__':
         
             # create an excitation signal based upon a train of
             # impulses of the same length as the current block
-            # source = g * create_impulse_train(sample_rate, block_size / sample_rate, pitch)
+            source = g * create_impulse_train(sample_rate, block_size / sample_rate, pitch)
 
             # test source NOT OK seulement 1 pic au début de chaque source
             # plt.title('source')
             # utils.plot_signal(source, sample_rate)
 
             # version modifiée dirac approximé
-            source = g * create_impulse_train_approx(sample_rate, block_size / sample_rate, pitch, 50)
+            # source = g * create_impulse_train_approx(sample_rate, block_size / sample_rate, pitch, 10)
 
             # test source dirac
             # plt.title('source modifiée')
@@ -132,9 +133,10 @@ if __name__ == '__main__':
     blocks_decoded = np.array(blocks_decoded) 
     decoded_speech = blocks_reconstruction(blocks_decoded, w, speech.size, 
       R = 0.5)
+    plt.title("decoded")
     utils.plot_signal(decoded_speech, sample_rate)
     
-    np.nan_to_num(decoded_speech, copy=False, posinf=0., neginf=0.) # effacement des Nan
+    # np.nan_to_num(decoded_speech, copy=False, posinf=0., neginf=0.) # effacement des Nan
     
     wavfile.write("./results/decoded_speech.wav", sample_rate, decoded_speech)
 
